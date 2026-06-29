@@ -28,7 +28,6 @@ export async function POST(req: Request) {
         content: true,
         senderId: true,
         read: true,
-        editedAt: true,
         createdAt: true,
         sender: { select: { id: true, name: true, image: true } },
       },
