@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { successResponse, errorResponse } from "@/utils/api";
@@ -63,11 +64,13 @@ export async function PATCH(
         type: "friend_accept",
       }),
     ]);
+    revalidateTag(`layout-counts-${session.user.id}`);
     return NextResponse.json(successResponse(updated));
   }
 
   // reject → delete the record
   await db.friend.delete({ where: { id } });
+  revalidateTag(`layout-counts-${session.user.id}`);
   return NextResponse.json(successResponse({ deleted: true }));
 }
 

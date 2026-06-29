@@ -44,13 +44,6 @@ export const getCurrentUser = cache(async () => {
       },
     });
 
-    if (user) {
-      void db.user.update({
-        where: { id: user.id },
-        data: { lastSeen: new Date() },
-      }).catch(() => {});
-    }
-
     return user;
   } catch (err) {
     console.error("[session] getCurrentUser failed:", err);

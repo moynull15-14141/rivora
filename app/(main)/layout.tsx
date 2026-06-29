@@ -1,9 +1,34 @@
 import { redirect } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import Navbar from "@/components/navbar/Navbar";
 import OnlinePing from "@/components/providers/OnlinePing";
 import BottomNav from "@/components/layout/BottomNav";
+
+const getLayoutCounts = (userId: string) =>
+  unstable_cache(
+    async () => {
+      const [pendingCount, unreadNotifs, unreadMessages] = await Promise.all([
+        db.friend.count({ where: { friendId: userId, status: "pending" } }),
+        db.notification.count({ where: { userId, read: false } }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).message
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (db as any).message.count({
+              where: {
+                read: false,
+                senderId: { not: userId },
+                conversation: { participants: { some: { userId } } },
+              },
+            })
+          : Promise.resolve(0),
+      ]);
+      return { pendingCount, unreadNotifs, unreadMessages };
+    },
+    [`layout-counts-${userId}`],
+    { revalidate: 30, tags: [`layout-counts-${userId}`] }
+  )();
 
 export default async function MainLayout({
   children,
@@ -14,21 +39,7 @@ export default async function MainLayout({
   if (!user) redirect("/login");
   if (!user.isActive) redirect("/deactivated");
 
-  const [pendingCount, unreadNotifs, unreadMessages] = await Promise.all([
-    db.friend.count({ where: { friendId: user.id, status: "pending" } }),
-    db.notification.count({ where: { userId: user.id, read: false } }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).message
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).message.count({
-          where: {
-            read: false,
-            senderId: { not: user.id },
-            conversation: { participants: { some: { userId: user.id } } },
-          },
-        })
-      : Promise.resolve(0),
-  ]);
+  const { pendingCount, unreadNotifs, unreadMessages } = await getLayoutCounts(user.id);
 
   return (
     <>

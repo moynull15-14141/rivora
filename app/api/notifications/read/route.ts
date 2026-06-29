@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { successResponse, errorResponse } from "@/utils/api";
@@ -14,6 +15,8 @@ export async function PATCH() {
     where: { userId: session.user.id, read: false },
     data: { read: true },
   });
+
+  revalidateTag(`layout-counts-${session.user.id}`);
 
   return NextResponse.json(successResponse({ ok: true }));
 }
