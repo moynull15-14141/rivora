@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import Avatar from "@/components/ui/Avatar";
@@ -53,7 +52,6 @@ export default function ChatWindow({
   const bottomRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
   const editInputRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "instant" });
@@ -85,12 +83,11 @@ export default function ChatWindow({
       if (res.ok) {
         const data: ChatMessage[] = await res.json();
         setMessages(data);
-        router.refresh();
       }
     } catch {
       // ignore
     }
-  }, [conversationId, router]);
+  }, [conversationId]);
 
   useEffect(() => {
     const interval = setInterval(fetchMessages, 3000);
