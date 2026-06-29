@@ -3,7 +3,6 @@ import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import CreatePost from "@/components/posts/CreatePost";
 import PostFeed from "@/components/posts/PostFeed";
-import LeftSidebar from "@/components/layout/LeftSidebar";
 import RightSidebar from "@/components/layout/RightSidebar";
 
 export default async function HomePage() {
@@ -64,42 +63,29 @@ export default async function HomePage() {
   const initialCursor = hasMore ? posts[posts.length - 1].id : null;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr_200px]">
-        {/* Left sidebar */}
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_200px]">
+      {/* Feed */}
+      <main className="flex min-w-0 flex-col gap-4">
+        <CreatePost userName={currentUser.name} userImage={currentUser.image ?? null} />
+
+        <PostFeed
+          initialPosts={posts.map((p) => ({
+            ...p,
+            visibility: p.visibility as "public" | "friends" | "only_me",
+          }))}
+          initialCursor={initialCursor}
+          currentUserId={currentUser.id}
+          currentUserName={currentUser.name}
+          currentUserImage={currentUser.image ?? null}
+        />
+      </main>
+
+      {/* Right sidebar */}
+      {suggestions.length > 0 && (
         <aside className="hidden lg:block">
-          <LeftSidebar
-            user={{
-              name: currentUser.name,
-              username: currentUser.username ?? null,
-              image: currentUser.image ?? null,
-            }}
-          />
+          <RightSidebar suggestions={suggestions} />
         </aside>
-
-        {/* Feed */}
-        <main className="flex min-w-0 flex-col gap-4">
-          <CreatePost userName={currentUser.name} userImage={currentUser.image ?? null} />
-
-          <PostFeed
-            initialPosts={posts.map((p) => ({
-              ...p,
-              visibility: p.visibility as "public" | "friends" | "only_me",
-            }))}
-            initialCursor={initialCursor}
-            currentUserId={currentUser.id}
-            currentUserName={currentUser.name}
-            currentUserImage={currentUser.image ?? null}
-          />
-        </main>
-
-        {/* Right sidebar — hidden when no suggestions */}
-        {suggestions.length > 0 && (
-          <aside className="hidden lg:block">
-            <RightSidebar suggestions={suggestions} />
-          </aside>
-        )}
-      </div>
+      )}
     </div>
   );
 }

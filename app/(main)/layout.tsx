@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import Navbar from "@/components/navbar/Navbar";
 import OnlinePing from "@/components/providers/OnlinePing";
 import BottomNav from "@/components/layout/BottomNav";
+import LeftSidebar from "@/components/layout/LeftSidebar";
 
 const getLayoutCounts = (userId: string) =>
   unstable_cache(
@@ -45,8 +46,20 @@ export default async function MainLayout({
     <>
       <Navbar />
       <OnlinePing />
-      {/* Extra bottom padding on mobile so content clears the bottom nav */}
-      <div className="min-h-screen pb-16 lg:pb-0">{children}</div>
+      <div className="mx-auto max-w-5xl px-4 pb-16 pt-6 sm:px-6 lg:pb-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
+          <aside className="hidden lg:block">
+            <LeftSidebar
+              user={{
+                name: user.name,
+                username: user.username ?? null,
+                image: user.image ?? null,
+              }}
+            />
+          </aside>
+          <div className="min-w-0">{children}</div>
+        </div>
+      </div>
       <BottomNav
         username={user.username ?? user.id}
         pendingCount={pendingCount}
