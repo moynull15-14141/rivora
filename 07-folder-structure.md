@@ -42,9 +42,3 @@ rivora/
 ```
 
 **Related Docs:** [03-tech-stack](./03-tech-stack.md)
-
-
-
-
-|   |    |--------
-|________
