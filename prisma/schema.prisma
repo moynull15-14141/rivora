@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Better Auth required tables ────────────────────────────────────────────
+
+model user {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime
+  updatedAt     DateTime
+
+  // Rivora custom fields
+  username   String?   @unique
+  bio        String?
+  coverPhoto String?
+  role       String    @default("user")
+  isVerified Boolean   @default(false)
+  isPrivate  Boolean   @default(false)
+  isActive   Boolean   @default(true)
+  lastSeen   DateTime?
+
+  sessions session[]
+  accounts account[]
+
+  posts    Post[]
+  comments Comment[]
+  likes    Like[]
+
+  sentRequests     Friend[] @relation("SentRequests")
+  receivedRequests Friend[] @relation("ReceivedRequests")
+
+  notificationsReceived Notification[] @relation("NotifRecipient")
+  notificationsSent     Notification[] @relation("NotifActor")
+
+  conversations ConversationParticipant[]
+  sentMessages  Message[]
+
+  @@map("users")
+}
+
+model session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@unique([providerId, accountId])
+  @@map("accounts")
+}
+
+model verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@unique([identifier, value])
+  @@map("verifications")
+}
+
+// ── Rivora domain models ───────────────────────────────────────────────────
+
+enum PostVisibility {
+  public
+  friends
+  only_me
+}
+
+enum FriendStatus {
+  pending
+  accepted
+}
+
+model Post {
+  id         String         @id @default(cuid())
+  userId     String
+  user       user           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content    String
+  images     String[]
+  visibility PostVisibility @default(public)
+  location   String?
+  editedAt   DateTime?
+  createdAt  DateTime       @default(now())
+
+  comments      Comment[]
+  likes         Like[]
+  notifications Notification[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("posts")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  createdAt DateTime @default(now())
+
+  @@index([postId, createdAt(sort: Asc)])
+  @@index([parentId])
+  @@map("comments")
+}
+
+model Like {
+  id     String @id @default(cuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId String
+  user   user   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("likes")
+}
+
+model Friend {
+  id          String       @id @default(cuid())
+  userId      String
+  friendId    String
+  status      FriendStatus @default(pending)
+  requestedBy String
+  acceptedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user   user @relation("SentRequests", fields: [userId], references: [id], onDelete: Cascade)
+  friend user @relation("ReceivedRequests", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+  @@index([userId, status])
+  @@index([friendId, status])
+  @@map("friends")
+}
+
+model Conversation {
+  id           String                   @id @default(cuid())
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  userId         String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           user         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  read           Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         user         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt(sort: Asc)])
+  @@index([senderId])
+  @@map("messages")
+}
+
+enum NotificationType {
+  like
+  comment
+  friend_request
+  friend_accept
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  actorId   String
+  type      NotificationType
+  postId    String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user  user  @relation("NotifRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor user  @relation("NotifActor", fields: [actorId], references: [id], onDelete: Cascade)
+  post  Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, read])
+  @@map("notifications")
+}
