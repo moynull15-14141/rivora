@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
                 placeholder="john@example.com"
                 required
                 autoFocus
-                className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/10"
+                className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/10"
               />
             </div>
 

@@ -22,7 +22,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           id={inputId}
           ref={ref}
           className={[
-            "w-full rounded-lg border px-4 py-2.5 text-sm outline-none transition-all",
+            "w-full rounded-lg border px-4 py-2.5 text-sm text-gray-900 outline-none transition-all",
             "placeholder:text-gray-400 bg-white",
             error
               ? "border-accent focus:ring-2 focus:ring-accent/30"
