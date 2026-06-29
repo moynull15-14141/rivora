@@ -142,7 +142,7 @@ export default function ChatWindow({
     setSending(true);
     setInput("");
 
-    // Optimistic: add temp message immediately
+    // Show temp message instantly
     const tempId = `temp-${Date.now()}`;
     pendingTempIds.current.add(tempId);
     const tempMsg: ChatMessage = {
@@ -161,12 +161,12 @@ export default function ChatWindow({
       body: JSON.stringify({ conversationId, content }),
     });
 
-    // Remove from pending tracking
     pendingTempIds.current.delete(tempId);
 
     if (res.ok) {
-      // Fetch fresh from server — replaces temp with real confirmed message
-      await fetchMessages();
+      const real: ChatMessage = await res.json();
+      // Replace temp directly with server response — no extra fetch needed
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? real : m)));
     } else {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
