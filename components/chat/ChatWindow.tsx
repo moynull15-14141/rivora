@@ -14,6 +14,7 @@ export type ChatMessage = {
   content: string;
   senderId: string;
   read: boolean;
+  editedAt?: string | Date | null;
   createdAt: string | Date;
   sender: Sender;
 };
@@ -46,8 +47,12 @@ export default function ChatWindow({
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
+  const editInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -59,6 +64,18 @@ export default function ChatWindow({
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (editingId) editInputRef.current?.focus();
+  }, [editingId]);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const close = () => setMenuOpenId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [menuOpenId]);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -83,14 +100,20 @@ export default function ChatWindow({
     const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
     if (!key || key === "your_key") return;
 
-    let channel: { unbind_all: () => void; bind: (event: string, cb: () => void) => void } | null = null;
+    let channel: { unbind_all: () => void; bind: (event: string, cb: (data: unknown) => void) => void } | null = null;
     let pusherClient: { subscribe: (ch: string) => typeof channel; unsubscribe: (ch: string) => void } | null = null;
 
     import("pusher-js").then(({ default: PusherJs }) => {
       pusherClient = new PusherJs(key, { cluster: cluster! });
       channel = pusherClient.subscribe(`chat-${conversationId}`);
-      channel?.bind("new-message", () => {
-        fetchMessages();
+      channel?.bind("new-message", () => fetchMessages());
+      channel?.bind("message-updated", (updated: unknown) => {
+        const msg = updated as ChatMessage;
+        setMessages((prev) => prev.map((m) => (m.id === msg.id ? msg : m)));
+      });
+      channel?.bind("message-deleted", (data: unknown) => {
+        const { id } = data as { id: string };
+        setMessages((prev) => prev.filter((m) => m.id !== id));
       });
     }).catch(() => {});
 
@@ -116,6 +139,31 @@ export default function ChatWindow({
 
     await fetchMessages();
     setSending(false);
+  }
+
+  async function saveEdit(msgId: string) {
+    const content = editContent.trim();
+    if (!content) return;
+
+    const res = await fetch(`/api/messages/${msgId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+
+    if (res.ok) {
+      const updated: ChatMessage = await res.json();
+      setMessages((prev) => prev.map((m) => (m.id === msgId ? updated : m)));
+    }
+    setEditingId(null);
+  }
+
+  async function deleteMessage(msgId: string) {
+    const res = await fetch(`/api/messages/${msgId}`, { method: "DELETE" });
+    if (res.ok) {
+      setMessages((prev) => prev.filter((m) => m.id !== msgId));
+    }
+    setMenuOpenId(null);
   }
 
   function timeStr(date: Date | string) {
@@ -187,6 +235,8 @@ export default function ChatWindow({
             const isOwn = msg.senderId === currentUser.id;
             const nextMsg = messages[i + 1];
             const showAvatar = !isOwn && nextMsg?.senderId !== msg.senderId;
+            const isEditing = editingId === msg.id;
+            const menuOpen = menuOpenId === msg.id;
 
             return (
               <div
@@ -215,25 +265,125 @@ export default function ChatWindow({
                   </div>
                 )}
 
-                <div className={`group flex max-w-[72%] flex-col ${isOwn ? "items-end" : "items-start"}`}>
-                  <div
-                    className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                      isOwn ? "rounded-br-sm bg-primary text-white" : "rounded-bl-sm shadow-sm"
-                    }`}
-                    style={
-                      isOwn
-                        ? undefined
-                        : { background: "var(--surface)", color: "var(--text-primary)" }
-                    }
-                  >
-                    {msg.content}
-                  </div>
-                  <span
-                    className="mt-0.5 hidden text-[10px] group-hover:block"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    {timeStr(msg.createdAt)}
-                  </span>
+                <div className={`group relative flex max-w-[72%] flex-col ${isOwn ? "items-end" : "items-start"}`}>
+                  {/* Edit/Delete menu button — own messages only */}
+                  {isOwn && !isEditing && (
+                    <div className={`absolute -left-8 bottom-1 ${menuOpen ? "flex" : "hidden group-hover:flex"}`}>
+                      <div className="relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpenId(menuOpen ? null : msg.id);
+                          }}
+                          className="flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:bg-[var(--surface-hover)]"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" />
+                          </svg>
+                        </button>
+
+                        {menuOpen && (
+                          <div
+                            className="absolute bottom-8 right-0 z-10 min-w-[120px] overflow-hidden rounded-xl shadow-lg"
+                            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={() => {
+                                setEditingId(msg.id);
+                                setEditContent(msg.content);
+                                setMenuOpenId(null);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--surface-hover)]"
+                              style={{ color: "var(--text-primary)" }}
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => deleteMessage(msg.id)}
+                              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-red-50"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Message bubble or edit input */}
+                  {isEditing ? (
+                    <form
+                      onSubmit={(e) => { e.preventDefault(); saveEdit(msg.id); }}
+                      className="flex items-center gap-2"
+                    >
+                      <input
+                        ref={editInputRef}
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        className="rounded-2xl border px-4 py-2.5 text-sm outline-none focus:border-primary"
+                        style={{
+                          borderColor: "var(--border)",
+                          background: "var(--surface-hover)",
+                          color: "var(--text-primary)",
+                          minWidth: "160px",
+                        }}
+                      />
+                      <button
+                        type="submit"
+                        disabled={!editContent.trim()}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white disabled:opacity-40"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-[var(--surface-hover)]"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </form>
+                  ) : (
+                    <div
+                      className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                        isOwn ? "rounded-br-sm bg-primary text-white" : "rounded-bl-sm shadow-sm"
+                      }`}
+                      style={
+                        isOwn
+                          ? undefined
+                          : { background: "var(--surface)", color: "var(--text-primary)" }
+                      }
+                    >
+                      {msg.content}
+                    </div>
+                  )}
+
+                  {/* Time + edited label */}
+                  {!isEditing && (
+                    <span
+                      className="mt-0.5 hidden text-[10px] group-hover:block"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {timeStr(msg.createdAt)}
+                      {msg.editedAt && " · edited"}
+                    </span>
+                  )}
                 </div>
               </div>
             );

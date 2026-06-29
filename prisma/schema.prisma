@@ -201,6 +201,7 @@ model Message {
   senderId       String
   content        String
   read           Boolean      @default(false)
+  editedAt       DateTime?
   createdAt      DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender         user         @relation(fields: [senderId], references: [id], onDelete: Cascade)
