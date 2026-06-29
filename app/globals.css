@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #0e7c7b;
+  --color-secondary: #f4e9cd;
+  --color-accent: #ff6b6b;
+
+  --font-heading: "Poppins", sans-serif;
+  --font-body: "Inter", sans-serif;
+}
+
+/* Enable class-based dark mode for dark: variant */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── Semantic colour tokens ──────────────────────────────── */
+:root {
+  --background:    #F8FAFC;
+  --surface:       #FFFFFF;
+  --surface-hover: #F1F5F9;
+  --border:        #E2E8F0;
+  --text-primary:  #0F172A;
+  --text-secondary:#475569;
+  --text-muted:    #94A3B8;
+}
+
+.dark {
+  --background:    #0F1419;
+  --surface:       #1A2129;
+  --surface-hover: #232B35;
+  --border:        #2C3640;
+  --text-primary:  #F1F5F9;
+  --text-secondary:#94A3B8;
+  --text-muted:    #64748B;
+}
+/* ──────────────────────────────────────────────────────────── */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.93) translateY(12px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .animate-fade-in  { animation: fade-in  0.15s ease-out both; }
+  .animate-modal-in { animation: modal-in 0.2s  ease-out both; }
+}
+
+@layer base {
+  body {
+    font-family: var(--font-body);
+    background-color: var(--background);
+    color: var(--text-primary);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+}
