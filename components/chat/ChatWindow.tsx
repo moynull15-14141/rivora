@@ -52,6 +52,8 @@ export default function ChatWindow({
   const bottomRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
   const editInputRef = useRef<HTMLInputElement>(null);
+  // Track pending sends so polling doesn't wipe optimistic messages
+  const pendingTempIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "instant" });
@@ -79,16 +81,20 @@ export default function ChatWindow({
 
   const fetchMessages = useCallback(async () => {
     try {
-      const res = await fetch(`/api/conversations/${conversationId}/messages`);
+      const res = await fetch(
+        `/api/conversations/${conversationId}/messages`,
+        { cache: "no-store" }
+      );
       if (res.ok) {
         const data: ChatMessage[] = await res.json();
         setMessages((prev) => {
-          // Keep optimistic temp messages that server hasn't confirmed yet
+          // Keep any temp messages that are still pending (POST not yet confirmed)
           const serverIds = new Set(data.map((m) => m.id));
-          const stillPending = prev.filter(
-            (m) => m.id.startsWith("temp-") && !serverIds.has(m.id)
+          const pending = [...pendingTempIds.current];
+          const stillWaiting = prev.filter(
+            (m) => pending.includes(m.id) && !serverIds.has(m.id)
           );
-          return [...data, ...stillPending];
+          return [...data, ...stillWaiting];
         });
       }
     } catch {
@@ -136,8 +142,9 @@ export default function ChatWindow({
     setSending(true);
     setInput("");
 
-    // Optimistic: show message instantly before server confirms
+    // Optimistic: add temp message immediately
     const tempId = `temp-${Date.now()}`;
+    pendingTempIds.current.add(tempId);
     const tempMsg: ChatMessage = {
       id: tempId,
       content,
@@ -154,12 +161,13 @@ export default function ChatWindow({
       body: JSON.stringify({ conversationId, content }),
     });
 
+    // Remove from pending tracking
+    pendingTempIds.current.delete(tempId);
+
     if (res.ok) {
-      const real: ChatMessage = await res.json();
-      // Replace temp message with real one from server
-      setMessages((prev) => prev.map((m) => (m.id === tempId ? real : m)));
+      // Fetch fresh from server — replaces temp with real confirmed message
+      await fetchMessages();
     } else {
-      // Remove temp message on failure
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
 

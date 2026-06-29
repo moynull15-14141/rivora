@@ -41,5 +41,7 @@ export async function GET(
     })
     .catch(() => {});
 
-  return NextResponse.json(messages);
+  return NextResponse.json(messages, {
+    headers: { "Cache-Control": "no-store" },
+  });
 }
