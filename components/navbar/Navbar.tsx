@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import Avatar from "@/components/ui/Avatar";
 import LogoutButton from "./LogoutButton";
 import SearchButton from "./SearchButton";
+import MobileMenuDrawer from "./MobileMenuDrawer";
 
 export default async function Navbar() {
   const user = await getCurrentUser();
@@ -111,7 +112,19 @@ export default async function Navbar() {
                 </span>
               </Link>
 
-              <LogoutButton />
+              {/* Logout — desktop only */}
+              <div className="hidden sm:block">
+                <LogoutButton />
+              </div>
+
+              {/* Hamburger menu — mobile only */}
+              <MobileMenuDrawer
+                user={{
+                  name: user.name,
+                  username: user.username ?? null,
+                  image: user.image ?? null,
+                }}
+              />
             </>
           ) : (
             <>
