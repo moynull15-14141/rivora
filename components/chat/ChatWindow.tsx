@@ -82,7 +82,14 @@ export default function ChatWindow({
       const res = await fetch(`/api/conversations/${conversationId}/messages`);
       if (res.ok) {
         const data: ChatMessage[] = await res.json();
-        setMessages(data);
+        setMessages((prev) => {
+          // Keep optimistic temp messages that server hasn't confirmed yet
+          const serverIds = new Set(data.map((m) => m.id));
+          const stillPending = prev.filter(
+            (m) => m.id.startsWith("temp-") && !serverIds.has(m.id)
+          );
+          return [...data, ...stillPending];
+        });
       }
     } catch {
       // ignore
