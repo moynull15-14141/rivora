@@ -128,12 +128,34 @@ export default function ChatWindow({
     if (!content || sending) return;
     setSending(true);
     setInput("");
-    await fetch("/api/messages", {
+
+    // Optimistic: show message instantly before server confirms
+    const tempId = `temp-${Date.now()}`;
+    const tempMsg: ChatMessage = {
+      id: tempId,
+      content,
+      senderId: currentUser.id,
+      read: false,
+      createdAt: new Date(),
+      sender: { id: currentUser.id, name: currentUser.name, image: currentUser.image },
+    };
+    setMessages((prev) => [...prev, tempMsg]);
+
+    const res = await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ conversationId, content }),
     });
-    await fetchMessages();
+
+    if (res.ok) {
+      const real: ChatMessage = await res.json();
+      // Replace temp message with real one from server
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? real : m)));
+    } else {
+      // Remove temp message on failure
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    }
+
     setSending(false);
   }
 
