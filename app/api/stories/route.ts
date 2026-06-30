@@ -7,7 +7,7 @@ import { successResponse, errorResponse } from "@/utils/api";
 const dbc = db as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const createSchema = z.object({
-  mediaUrl: z.string().url(),
+  mediaUrl: z.string().url().or(z.literal("")),
   mediaType: z.enum(["image", "video"]),
   caption: z.string().max(500).optional(),
   backgroundColor: z.string().optional(),
