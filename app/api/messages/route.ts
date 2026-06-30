@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
-import { pusher } from "@/lib/pusher";
+import { triggerPusher } from "@/lib/pusher";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const dbc = db as any;
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     }),
   ]);
 
-  void pusher.trigger(`chat-${conversationId}`, "new-message", message).catch(() => {});
+  void triggerPusher(`chat-${conversationId}`, "new-message", message);
 
   return NextResponse.json(message, { status: 201 });
 }

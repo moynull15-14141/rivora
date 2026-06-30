@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
-import { pusher } from "@/lib/pusher";
+import { triggerPusher } from "@/lib/pusher";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const dbc = db as any;
@@ -36,7 +36,7 @@ export async function PATCH(
     },
   });
 
-  void pusher.trigger(`chat-${message.conversationId}`, "message-updated", updated).catch(() => {});
+  void triggerPusher(`chat-${message.conversationId}`, "message-updated", updated);
 
   return NextResponse.json(updated);
 }
@@ -57,7 +57,7 @@ export async function DELETE(
 
   await dbc.message.delete({ where: { id } });
 
-  void pusher.trigger(`chat-${message.conversationId}`, "message-deleted", { id }).catch(() => {});
+  void triggerPusher(`chat-${message.conversationId}`, "message-deleted", { id });
 
   return NextResponse.json({ ok: true });
 }
