@@ -42,15 +42,6 @@ export default function StoryBar({ currentUser, groups }: Props) {
     setViewerOpen(true);
   }
 
-  function handleOwnClick() {
-    const ownIdx = liveGroups.findIndex((g) => g.user.id === currentUser.id);
-    if (ownIdx >= 0) {
-      openViewer(ownIdx);
-    } else {
-      setCreateOpen(true);
-    }
-  }
-
   function handleStoryCreated(story: StoryItem) {
     setLiveGroups((prev) => {
       const existing = prev.findIndex((g) => g.user.id === currentUser.id);
@@ -78,55 +69,55 @@ export default function StoryBar({ currentUser, groups }: Props) {
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
         <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-          {/* Add Story / Own Story */}
+          {/* Own story — only when user has an active story */}
+          {ownGroup && (
+            <button
+              onClick={() => {
+                const ownIdx = liveGroups.findIndex((g) => g.user.id === currentUser.id);
+                if (ownIdx >= 0) openViewer(ownIdx);
+              }}
+              className="flex shrink-0 flex-col items-center gap-1.5 focus:outline-none"
+            >
+              <div className="rounded-full bg-gradient-to-tr from-teal-500 to-red-400 p-[2.5px]">
+                <div className="rounded-full p-0.5" style={{ background: "var(--surface)" }}>
+                  <div className="relative h-14 w-14 overflow-hidden rounded-full">
+                    {currentUser.image ? (
+                      <Image src={currentUser.image} alt={currentUser.name} fill sizes="56px" className="object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-primary/10 text-lg font-bold text-primary">
+                        {currentUser.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <span className="w-16 truncate text-center text-[10px] font-medium" style={{ color: "var(--text-secondary)" }}>
+                Your Story
+              </span>
+            </button>
+          )}
+
+          {/* Add Story button — always visible */}
           <button
-            onClick={handleOwnClick}
+            onClick={() => setCreateOpen(true)}
             className="flex shrink-0 flex-col items-center gap-1.5 focus:outline-none"
           >
-            <div className="relative">
-              {ownGroup ? (
-                <div className="rounded-full bg-gradient-to-tr from-teal-500 to-red-400 p-[2.5px]">
-                  <div
-                    className="rounded-full p-0.5"
-                    style={{ background: "var(--surface)" }}
-                  >
-                    <div className="relative h-14 w-14 overflow-hidden rounded-full">
-                      {currentUser.image ? (
-                        <Image src={currentUser.image} alt={currentUser.name} fill sizes="56px" className="object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-primary/10 text-lg font-bold text-primary">
-                          {currentUser.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+            <div className="relative h-14 w-14 overflow-hidden rounded-full border-2" style={{ borderColor: "var(--border)" }}>
+              {currentUser.image ? (
+                <Image src={currentUser.image} alt={currentUser.name} fill sizes="56px" className="object-cover" />
               ) : (
-                <div className="relative h-14 w-14 overflow-hidden rounded-full border-2" style={{ borderColor: "var(--border)" }}>
-                  {currentUser.image ? (
-                    <Image src={currentUser.image} alt={currentUser.name} fill sizes="56px" className="object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-primary/10 text-lg font-bold text-primary">
-                      {currentUser.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                  </div>
+                <div className="flex h-full w-full items-center justify-center bg-primary/10 text-lg font-bold text-primary">
+                  {currentUser.name.charAt(0).toUpperCase()}
                 </div>
               )}
-              {!ownGroup && (
-                <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                </div>
-              )}
+              <div className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
             </div>
             <span className="w-16 truncate text-center text-[10px] font-medium" style={{ color: "var(--text-secondary)" }}>
-              {ownGroup ? "Your Story" : "Add Story"}
+              Add Story
             </span>
           </button>
 
