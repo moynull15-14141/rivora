@@ -133,7 +133,7 @@ export default function StoryBar({ currentUser, groups }: Props) {
           {/* Friends' story groups */}
           {liveGroups
             .filter((g) => g.user.id !== currentUser.id)
-            .map((group, idx) => {
+            .map((group) => {
               const actualIdx = liveGroups.findIndex((g) => g.user.id === group.user.id);
               return (
                 <button
