@@ -19,7 +19,7 @@ export async function GET(
   });
   if (!participant) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const messages = await dbc.message.findMany({
+  const raw = await dbc.message.findMany({
     where: { conversationId: id },
     select: {
       id: true,
@@ -30,9 +30,11 @@ export async function GET(
       createdAt: true,
       sender: { select: { id: true, name: true, image: true } },
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     take: 50,
   });
+  // Reverse so messages are oldest-first in the response
+  const messages = raw.reverse();
 
   void dbc.message
     .updateMany({

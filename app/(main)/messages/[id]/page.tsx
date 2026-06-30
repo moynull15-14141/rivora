@@ -39,7 +39,7 @@ export default async function ConversationPage({
   const otherUser = conversation.participants[0]?.user;
   if (!otherUser) notFound();
 
-  const [messages] = await Promise.all([
+  const [rawMessages] = await Promise.all([
     dbc.message.findMany({
       where: { conversationId: id },
       select: {
@@ -50,7 +50,7 @@ export default async function ConversationPage({
         createdAt: true,
         sender: { select: { id: true, name: true, image: true } },
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       take: 50,
     }),
     dbc.message.updateMany({
@@ -58,6 +58,8 @@ export default async function ConversationPage({
       data: { read: true },
     }),
   ]);
+  // Reverse so initial messages are oldest-first
+  const messages = rawMessages.reverse();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mappedMessages = messages.map((m: any) => ({
