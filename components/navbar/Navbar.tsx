@@ -9,21 +9,20 @@ import MobileMenuDrawer from "./MobileMenuDrawer";
 export default async function Navbar() {
   const user = await getCurrentUser();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dbc = db as any;
+
   const [pendingCount, unreadCount, unreadMessages] = user
     ? await Promise.all([
         db.friend.count({ where: { friendId: user.id, status: "pending" } }),
         db.notification.count({ where: { userId: user.id, read: false } }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).message
-          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (db as any).message.count({
-              where: {
-                read: false,
-                senderId: { not: user.id },
-                conversation: { participants: { some: { userId: user.id } } },
-              },
-            })
-          : Promise.resolve(0),
+        dbc.message.count({
+          where: {
+            read: false,
+            senderId: { not: user.id },
+            conversation: { participants: { some: { userId: user.id } } },
+          },
+        }),
       ])
     : [0, 0, 0];
 
