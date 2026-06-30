@@ -69,7 +69,31 @@ export default function StoryBar({ currentUser, groups }: Props) {
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
         <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-          {/* Own story — only when user has an active story */}
+          {/* Add Story button — always first */}
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="flex shrink-0 flex-col items-center gap-1.5 focus:outline-none"
+          >
+            <div className="relative h-14 w-14 overflow-hidden rounded-full border-2" style={{ borderColor: "var(--border)" }}>
+              {currentUser.image ? (
+                <Image src={currentUser.image} alt={currentUser.name} fill sizes="56px" className="object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-primary/10 text-lg font-bold text-primary">
+                  {currentUser.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+            </div>
+            <span className="w-16 truncate text-center text-[10px] font-medium" style={{ color: "var(--text-secondary)" }}>
+              Add Story
+            </span>
+          </button>
+
+          {/* Your Story — only when user has an active story */}
           {ownGroup && (
             <button
               onClick={() => {
@@ -96,30 +120,6 @@ export default function StoryBar({ currentUser, groups }: Props) {
               </span>
             </button>
           )}
-
-          {/* Add Story button — always visible */}
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="flex shrink-0 flex-col items-center gap-1.5 focus:outline-none"
-          >
-            <div className="relative h-14 w-14 overflow-hidden rounded-full border-2" style={{ borderColor: "var(--border)" }}>
-              {currentUser.image ? (
-                <Image src={currentUser.image} alt={currentUser.name} fill sizes="56px" className="object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-primary/10 text-lg font-bold text-primary">
-                  {currentUser.name.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-            </div>
-            <span className="w-16 truncate text-center text-[10px] font-medium" style={{ color: "var(--text-secondary)" }}>
-              Add Story
-            </span>
-          </button>
 
           {/* Friends' story groups */}
           {liveGroups
