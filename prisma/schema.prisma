@@ -44,6 +44,9 @@ model user {
   conversations ConversationParticipant[]
   sentMessages  Message[]
 
+  stories    Story[]
+  storyViews StoryView[]
+
   @@map("users")
 }
 
@@ -209,6 +212,38 @@ model Message {
   @@index([conversationId, createdAt(sort: Asc)])
   @@index([senderId])
   @@map("messages")
+}
+
+model Story {
+  id              String   @id @default(cuid())
+  userId          String
+  user            user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mediaUrl        String
+  mediaType       String
+  caption         String?
+  backgroundColor String?
+  viewCount       Int      @default(0)
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime
+
+  views StoryView[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([expiresAt])
+  @@map("stories")
+}
+
+model StoryView {
+  id       String   @id @default(cuid())
+  storyId  String
+  story    Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  viewerId String
+  viewer   user     @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  viewedAt DateTime @default(now())
+
+  @@unique([storyId, viewerId])
+  @@index([storyId])
+  @@map("story_views")
 }
 
 enum NotificationType {
