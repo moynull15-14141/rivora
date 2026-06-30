@@ -1,0 +1,21 @@
+import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/session";
+import { db } from "@/lib/db";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dbc = db as any;
+
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ unreadMessages: 0 });
+
+  const unreadMessages: number = await dbc.message.count({
+    where: {
+      read: false,
+      senderId: { not: user.id },
+      conversation: { participants: { some: { userId: user.id } } },
+    },
+  });
+
+  return NextResponse.json({ unreadMessages });
+}
