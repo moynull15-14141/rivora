@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { triggerPusher } from "@/lib/pusher";
+import { sendPushNotification } from "@/lib/send-notification";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const dbc = db as any;
@@ -39,6 +40,23 @@ export async function POST(req: Request) {
   ]);
 
   void triggerPusher(`chat-${conversationId}`, "new-message", message);
+
+  // Push notification to other participants
+  const otherParticipants = await dbc.conversationParticipant.findMany({
+    where: { conversationId, userId: { not: currentUser.id } },
+    select: { userId: true },
+  });
+  for (const p of otherParticipants as { userId: string }[]) {
+    void sendPushNotification({
+      userId: p.userId,
+      title: currentUser.name,
+      body: content.trim().length > 80 ? content.trim().slice(0, 80) + "…" : content.trim(),
+      icon: currentUser.image ?? undefined,
+      url: `/messages/${conversationId}`,
+      sound: "/sounds/msgtune.wav",
+      type: "message",
+    });
+  }
 
   return NextResponse.json(message, { status: 201 });
 }
