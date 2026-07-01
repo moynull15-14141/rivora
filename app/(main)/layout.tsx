@@ -5,6 +5,7 @@ import Navbar from "@/components/navbar/Navbar";
 import OnlinePing from "@/components/providers/OnlinePing";
 import BottomNav from "@/components/layout/BottomNav";
 import LeftSidebar from "@/components/layout/LeftSidebar";
+import MessageBadgePoller from "@/components/messages/MessageBadgePoller";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const dbc = db as any;
@@ -34,6 +35,7 @@ export default async function MainLayout({
     <>
       <Navbar />
       <OnlinePing />
+      <MessageBadgePoller />
       <div className="mx-auto max-w-5xl px-4 pb-16 pt-6 sm:px-6 lg:pb-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
           <aside className="hidden lg:block">

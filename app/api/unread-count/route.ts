@@ -7,15 +7,18 @@ const dbc = db as any;
 
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ unreadMessages: 0 });
+  if (!user) return NextResponse.json({ unreadMessages: 0, unreadNotifs: 0 });
 
-  const unreadMessages: number = await dbc.message.count({
-    where: {
-      read: false,
-      senderId: { not: user.id },
-      conversation: { participants: { some: { userId: user.id } } },
-    },
-  });
+  const [unreadMessages, unreadNotifs] = await Promise.all([
+    dbc.message.count({
+      where: {
+        read: false,
+        senderId: { not: user.id },
+        conversation: { participants: { some: { userId: user.id } } },
+      },
+    }),
+    db.notification.count({ where: { userId: user.id, read: false } }),
+  ]);
 
-  return NextResponse.json({ unreadMessages });
+  return NextResponse.json({ unreadMessages, unreadNotifs });
 }
