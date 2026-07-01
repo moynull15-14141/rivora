@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Poppins } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import QueryProvider from "@/components/providers/QueryProvider";
+import NotificationProvider from "@/components/providers/NotificationProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -35,7 +36,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning className={`${inter.variable} ${poppins.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <NotificationProvider />
+            {children}
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

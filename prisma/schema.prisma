@@ -47,6 +47,8 @@ model user {
   stories    Story[]
   storyViews StoryView[]
 
+  fcmTokens  String[]
+
   @@map("users")
 }
 
