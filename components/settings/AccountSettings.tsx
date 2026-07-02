@@ -113,59 +113,48 @@ export default function AccountSettings() {
 
   return (
     <>
-      <div
-        className="rounded-2xl p-6 shadow-sm"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-      >
-        <h2 className="font-heading text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-          Account
-        </h2>
-        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Manage your account status.
-        </p>
-
-        <div className="mt-5 flex flex-col gap-3">
-          {/* Deactivate */}
-          <div
-            className="flex items-start justify-between gap-4 rounded-xl border p-4"
-            style={{ borderColor: "var(--border)" }}
+      <div className="flex flex-col gap-3">
+        {/* Deactivate */}
+        <div
+          className="flex items-start justify-between gap-4 rounded-xl border p-4"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <div>
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+              Deactivate Account
+            </p>
+            <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+              Your profile and posts will be hidden. You can reactivate anytime by logging back in.
+            </p>
+          </div>
+          <button
+            onClick={() => setModal("deactivate")}
+            className="shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-600 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30"
           >
-            <div>
-              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                Deactivate Account
-              </p>
-              <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                Your profile and posts will be hidden. You can reactivate anytime by logging back in.
-              </p>
-            </div>
-            <button
-              onClick={() => setModal("deactivate")}
-              className="shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-600 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30"
-            >
-              Deactivate
-            </button>
-          </div>
+            Deactivate
+          </button>
+        </div>
 
-          {/* Delete */}
-          <div className="flex items-start justify-between gap-4 rounded-xl border border-red-100 p-4 dark:border-red-900/40">
-            <div>
-              <p className="text-sm font-semibold text-red-600 dark:text-red-400">
-                Delete Account
-              </p>
-              <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                Permanently deletes your account, posts, messages, and all data. This cannot be undone.
-              </p>
-            </div>
-            <button
-              onClick={() => setModal("delete")}
-              className="shrink-0 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-            >
-              Delete
-            </button>
+        {/* Delete */}
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-red-100 p-4 dark:border-red-900/40">
+          <div>
+            <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+              Delete Account
+            </p>
+            <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+              Permanently deletes your account, posts, messages, and all data. This cannot be undone.
+            </p>
           </div>
+          <button
+            onClick={() => setModal("delete")}
+            className="shrink-0 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            Delete
+          </button>
         </div>
       </div>
 
+      {/* Modals render outside the card — fixed positioning escapes overflow-hidden */}
       {modal === "deactivate" && (
         <ConfirmModal
           title="Deactivate your account?"

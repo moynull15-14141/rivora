@@ -38,42 +38,33 @@ export default function AppearanceSettings() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
+
+  if (!mounted) {
+    return <div className="h-16 animate-pulse rounded-xl" style={{ background: "var(--surface-hover)" }} />;
+  }
 
   return (
-    <div
-      className="rounded-2xl p-6 shadow-sm"
-      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-    >
-      <h2 className="font-heading text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-        Appearance
-      </h2>
-      <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-        Choose how Rivora looks for you.
-      </p>
-
-      <div className="mt-4 grid grid-cols-3 gap-3">
-        {THEMES.map((t) => {
-          const active = theme === t.value;
-          return (
-            <button
-              key={t.value}
-              onClick={() => setTheme(t.value)}
-              className={`flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-colors ${
-                active ? "border-primary bg-primary/5 text-primary" : "hover:border-[var(--border)]"
-              }`}
-              style={
-                !active
-                  ? { borderColor: "var(--border)", color: "var(--text-secondary)" }
-                  : undefined
-              }
-            >
-              {t.icon}
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
+    <div className="grid grid-cols-3 gap-3">
+      {THEMES.map((t) => {
+        const active = theme === t.value;
+        return (
+          <button
+            key={t.value}
+            onClick={() => setTheme(t.value)}
+            className={`flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-colors ${
+              active ? "border-primary bg-primary/5 text-primary" : "hover:border-[var(--border)]"
+            }`}
+            style={
+              !active
+                ? { borderColor: "var(--border)", color: "var(--text-secondary)" }
+                : undefined
+            }
+          >
+            {t.icon}
+            {t.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
