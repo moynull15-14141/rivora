@@ -1,16 +1,9 @@
-import { ConversationSkeleton } from "@/components/ui/skeletons";
-
 export default function Loading() {
   return (
-    <div className="mx-auto max-w-lg px-4 py-6 sm:px-6">
-      <div className="mb-4 h-7 w-28 animate-pulse rounded-lg bg-gray-200" />
-      <div className="overflow-hidden rounded-2xl shadow-sm divide-y" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-        <ConversationSkeleton />
-        <ConversationSkeleton />
-        <ConversationSkeleton />
-        <ConversationSkeleton />
-        <ConversationSkeleton />
-      </div>
+    <div className="flex h-full flex-col items-center justify-center p-8">
+      <div className="h-16 w-16 animate-pulse rounded-full bg-gray-200" />
+      <div className="mt-4 h-5 w-32 animate-pulse rounded-lg bg-gray-200" />
+      <div className="mt-2 h-4 w-56 animate-pulse rounded-lg bg-gray-100" />
     </div>
   );
 }

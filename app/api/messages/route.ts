@@ -16,10 +16,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
+  // Verify membership (must not have left)
   const participant = await dbc.conversationParticipant.findUnique({
     where: { conversationId_userId: { conversationId, userId: currentUser.id } },
   });
-  if (!participant) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!participant || participant.leftAt) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Fetch conversation info for notification title
+  const conversation = await dbc.conversation.findUnique({
+    where: { id: conversationId },
+    select: { isGroup: true, name: true },
+  });
+  if (!conversation) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const [message] = await Promise.all([
     dbc.message.create({
@@ -33,24 +43,33 @@ export async function POST(req: Request) {
         sender: { select: { id: true, name: true, image: true } },
       },
     }),
+    // Update lastMessageAt for sorting
     dbc.conversation.update({
       where: { id: conversationId },
-      data: { updatedAt: new Date() },
+      data: { updatedAt: new Date(), lastMessageAt: new Date() },
     }),
   ]);
 
   void triggerPusher(`chat-${conversationId}`, "new-message", message);
 
-  // Push notification to other participants
+  // Push notifications to all other active participants
   const otherParticipants = await dbc.conversationParticipant.findMany({
-    where: { conversationId, userId: { not: currentUser.id } },
+    where: { conversationId, userId: { not: currentUser.id }, leftAt: null },
     select: { userId: true },
   });
+
+  const notifTitle = conversation.isGroup
+    ? (conversation.name ?? "Group Chat")
+    : currentUser.name;
+  const notifBody = conversation.isGroup
+    ? `${currentUser.name}: ${content.trim().slice(0, 80)}${content.trim().length > 80 ? "…" : ""}`
+    : `${content.trim().slice(0, 80)}${content.trim().length > 80 ? "…" : ""}`;
+
   for (const p of otherParticipants as { userId: string }[]) {
     void sendPushNotification({
       userId: p.userId,
-      title: currentUser.name,
-      body: content.trim().length > 80 ? content.trim().slice(0, 80) + "…" : content.trim(),
+      title: notifTitle,
+      body: notifBody,
       icon: currentUser.image ?? undefined,
       url: `/messages/${conversationId}`,
       sound: "/sounds/msgtune.wav",

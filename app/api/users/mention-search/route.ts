@@ -3,8 +3,12 @@ import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { successResponse, errorResponse } from "@/utils/api";
 
-// GET /api/users/mention-search?q=<query>
-// Returns friends matching the query — used for @mention dropdown
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dbc = db as any;
+
+// GET /api/users/mention-search?q=<query>[&conversationId=<id>]
+// If conversationId provided → search only that conversation's active members
+// Otherwise → search accepted friends
 export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session?.user) {
@@ -12,12 +16,48 @@ export async function GET(request: NextRequest) {
   }
 
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
+  const conversationId = request.nextUrl.searchParams.get("conversationId");
 
   if (q.length < 1) {
     return NextResponse.json(successResponse([]));
   }
 
-  // Fetch accepted friend IDs
+  if (conversationId) {
+    // Group @mention: search active participants of this conversation (excluding self)
+    const participants = await dbc.conversationParticipant.findMany({
+      where: {
+        conversationId,
+        leftAt: null,
+        userId: { not: session.user.id },
+        user: {
+          username: { not: null },
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { username: { contains: q, mode: "insensitive" } },
+          ],
+        },
+      },
+      select: {
+        user: { select: { id: true, name: true, username: true, image: true } },
+      },
+      take: 6,
+    });
+
+    const result = participants
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((p: any) => p.user.username)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((p: any) => ({
+        id: p.user.id,
+        name: p.user.name,
+        username: p.user.username as string,
+        image: p.user.image,
+      }));
+
+    return NextResponse.json(successResponse(result));
+  }
+
+  // Default: search accepted friends
   const friendships = await db.friend.findMany({
     where: {
       status: "accepted",

@@ -16,28 +16,29 @@ export default async function ConversationPage({
 
   const { id } = await params;
 
+  // Check membership
   const participant = await dbc.conversationParticipant.findUnique({
     where: { conversationId_userId: { conversationId: id, userId: currentUser.id } },
   });
   if (!participant) notFound();
+  // If user left a group, redirect away
+  if (participant.leftAt) redirect("/messages");
 
   const conversation = await dbc.conversation.findUnique({
     where: { id },
     include: {
       participants: {
-        where: { userId: { not: currentUser.id } },
+        where: { leftAt: null },
         include: {
           user: {
             select: { id: true, name: true, username: true, image: true, lastSeen: true },
           },
         },
+        orderBy: { joinedAt: "asc" },
       },
     },
   });
   if (!conversation) notFound();
-
-  const otherUser = conversation.participants[0]?.user;
-  if (!otherUser) notFound();
 
   const [rawMessages] = await Promise.all([
     dbc.message.findMany({
@@ -47,6 +48,7 @@ export default async function ConversationPage({
         content: true,
         senderId: true,
         read: true,
+        editedAt: true,
         createdAt: true,
         sender: { select: { id: true, name: true, image: true } },
       },
@@ -58,25 +60,58 @@ export default async function ConversationPage({
       data: { read: true },
     }),
   ]);
-  // Reverse so initial messages are oldest-first
-  const messages = rawMessages.reverse();
 
+  const messages = rawMessages.reverse();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mappedMessages = messages.map((m: any) => ({
     ...m,
     createdAt: m.createdAt.toISOString(),
+    editedAt: m.editedAt ? m.editedAt.toISOString() : null,
   }));
 
-  return (
-    <ChatWindow
-      conversationId={id}
-      currentUser={{
-        id: currentUser.id,
-        name: currentUser.name,
-        image: currentUser.image ?? null,
-      }}
-      otherUser={otherUser}
-      initialMessages={mappedMessages}
-    />
-  );
+  const me = { id: currentUser.id, name: currentUser.name, image: currentUser.image ?? null };
+
+  if (conversation.isGroup) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mappedParticipants = conversation.participants.map((p: any) => ({
+      id: p.userId,
+      name: p.user.name,
+      username: p.user.username,
+      image: p.user.image,
+      isAdmin: p.isAdmin,
+    }));
+
+    return (
+      <ChatWindow
+        conversationId={id}
+        currentUser={me}
+        isGroup
+        groupName={conversation.name ?? "Group"}
+        groupAvatar={conversation.avatar ?? null}
+        participants={mappedParticipants}
+        isAdmin={participant.isAdmin}
+        initialMessages={mappedMessages}
+      />
+    );
+  } else {
+    // DM
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const otherParticipant = conversation.participants.find((p: any) => p.userId !== currentUser.id);
+    if (!otherParticipant) notFound();
+
+    return (
+      <ChatWindow
+        conversationId={id}
+        currentUser={me}
+        otherUser={{
+          id: otherParticipant.userId,
+          name: otherParticipant.user.name,
+          username: otherParticipant.user.username,
+          image: otherParticipant.user.image,
+          lastSeen: otherParticipant.user.lastSeen,
+        }}
+        initialMessages={mappedMessages}
+      />
+    );
+  }
 }
