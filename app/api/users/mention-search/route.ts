@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       where: {
         conversationId,
         leftAt: null,
+        status: "active",
         userId: { not: session.user.id },
         user: {
           username: { not: null },

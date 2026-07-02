@@ -26,7 +26,7 @@ export async function GET(_req: Request, { params }: Params) {
     where: { id },
     include: {
       participants: {
-        where: { leftAt: null },
+        where: { leftAt: null, status: "active" },
         include: {
           user: {
             select: { id: true, name: true, username: true, image: true, lastSeen: true },

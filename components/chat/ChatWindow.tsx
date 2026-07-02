@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Avatar from "@/components/ui/Avatar";
 import { isOnline } from "@/utils/online";
 import EditGroupModal from "./EditGroupModal";
+import AddMemberModal from "./AddMemberModal";
 
 type Sender = { id: string; name: string; image: string | null };
 
@@ -72,10 +73,16 @@ export default function ChatWindow({
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [showGroupMenu, setShowGroupMenu] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [leavingGroup, setLeavingGroup] = useState(false);
   const [localGroupName, setLocalGroupName] = useState(groupName ?? "");
   const [localGroupAvatar, setLocalGroupAvatar] = useState<string | null>(groupAvatar ?? null);
+  const [localParticipants, setLocalParticipants] = useState<GroupParticipant[]>(participants ?? []);
+  const [pendingInvites, setPendingInvites] = useState<
+    { id: string; name: string; username: string | null; image: string | null; invitedByName: string | null }[]
+  >([]);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -128,6 +135,22 @@ export default function ChatWindow({
       }
     } catch {}
   }, [conversationId]);
+
+  const fetchParticipants = useCallback(async () => {
+    if (!isGroup) return;
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}/participants`, { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setLocalParticipants(data.active ?? []);
+        setPendingInvites(data.pending ?? []);
+      }
+    } catch {}
+  }, [conversationId, isGroup]);
+
+  useEffect(() => {
+    fetchParticipants();
+  }, [fetchParticipants]);
 
   useEffect(() => {
     const interval = setInterval(fetchMessages, 3000);
@@ -237,7 +260,7 @@ export default function ChatWindow({
   const placeholderName = isGroup ? displayGroupName : (otherUser?.name ?? "");
 
   // For group: stacked avatars (non-self participants, first 2)
-  const groupAvatarUsers = (participants ?? []).filter((p) => p.id !== currentUser.id).slice(0, 2);
+  const groupAvatarUsers = localParticipants.filter((p) => p.id !== currentUser.id).slice(0, 2);
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col" style={{ background: "var(--background)" }}>
@@ -297,14 +320,14 @@ export default function ChatWindow({
                 {displayGroupName}
               </p>
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {(participants ?? []).length} members
+                {localParticipants.length} members
               </p>
             </div>
             {/* Group ⋮ menu */}
             <div className="relative shrink-0" ref={groupMenuRef}>
               <button
                 onClick={() => setShowGroupMenu((v) => !v)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-hover)]"
+                className="relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-hover)]"
                 style={{ color: "var(--text-muted)" }}
               >
                 <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -312,33 +335,51 @@ export default function ChatWindow({
                   <circle cx="12" cy="12" r="2" />
                   <circle cx="12" cy="19" r="2" />
                 </svg>
+                {isAdmin && pendingInvites.length > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white">
+                    {pendingInvites.length}
+                  </span>
+                )}
               </button>
               {showGroupMenu && (
                 <div
                   className="absolute right-0 top-10 z-20 min-w-[200px] overflow-hidden rounded-xl shadow-lg"
                   style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
                 >
-                  {isAdmin && (
-                    <button
-                      onClick={() => { setShowGroupMenu(false); setShowEditModal(true); }}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-[var(--surface-hover)]"
-                      style={{ color: "var(--text-primary)" }}
-                    >
-                      <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Edit Group
-                    </button>
-                  )}
+                  <button
+                    onClick={() => { setShowGroupMenu(false); setShowEditModal(true); }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-[var(--surface-hover)]"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit Group
+                  </button>
+                  <button
+                    onClick={() => { setShowGroupMenu(false); setShowAddMemberModal(true); }}
+                    className="flex w-full items-center gap-3 border-t px-4 py-3 text-sm transition-colors hover:bg-[var(--surface-hover)]"
+                    style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}
+                  >
+                    <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    Add Members
+                  </button>
                   <button
                     onClick={() => { setShowGroupMenu(false); setShowMembersModal(true); }}
-                    className={`flex w-full items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-[var(--surface-hover)] ${isAdmin ? "border-t" : ""}`}
+                    className="flex w-full items-center gap-3 border-t px-4 py-3 text-sm transition-colors hover:bg-[var(--surface-hover)]"
                     style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}
                   >
                     <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    Members ({(participants ?? []).length})
+                    Members ({localParticipants.length})
+                    {isAdmin && pendingInvites.length > 0 && (
+                      <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        {pendingInvites.length} pending
+                      </span>
+                    )}
                   </button>
                   <button
                     onClick={() => { setShowGroupMenu(false); leaveGroup(); }}
@@ -394,9 +435,9 @@ export default function ChatWindow({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
-                <p className="font-semibold" style={{ color: "var(--text-primary)" }}>{groupName}</p>
+                <p className="font-semibold" style={{ color: "var(--text-primary)" }}>{displayGroupName}</p>
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {(participants ?? []).length} members · Say hi to kick things off!
+                  {localParticipants.length} members · Say hi to kick things off!
                 </p>
               </>
             ) : (
@@ -624,24 +665,38 @@ export default function ChatWindow({
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowMembersModal(false)} />
           <div
             className="relative z-10 flex w-full max-w-sm flex-col overflow-hidden rounded-2xl shadow-2xl"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)", maxHeight: "80dvh" }}
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", maxHeight: "85dvh" }}
           >
+            {/* Modal header */}
             <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: "var(--border)" }}>
               <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>
-                Members ({(participants ?? []).length})
+                Members ({localParticipants.length})
               </h3>
-              <button
-                onClick={() => setShowMembersModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-[var(--surface-hover)]"
-                style={{ color: "var(--text-muted)" }}
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setShowMembersModal(false); setShowAddMemberModal(true); }}
+                  className="flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add
+                </button>
+                <button
+                  onClick={() => setShowMembersModal(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-[var(--surface-hover)]"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
+
             <div className="overflow-y-auto">
-              {(participants ?? []).map((p, i) => (
+              {/* Active members */}
+              {localParticipants.map((p, i) => (
                 <div
                   key={p.id}
                   className={`flex items-center gap-3 px-5 py-3 ${i > 0 ? "border-t" : ""}`}
@@ -674,16 +729,105 @@ export default function ChatWindow({
                   )}
                 </div>
               ))}
+
+              {/* Pending invites (admin only) */}
+              {isAdmin && pendingInvites.length > 0 && (
+                <>
+                  <div
+                    className="border-t px-5 py-2"
+                    style={{ borderColor: "var(--border)", background: "var(--surface-hover)" }}
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+                      Pending Invites ({pendingInvites.length})
+                    </p>
+                  </div>
+                  {pendingInvites.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-3 border-t px-5 py-3"
+                      style={{ borderColor: "var(--border)" }}
+                    >
+                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-primary/10">
+                        {p.image ? (
+                          <Image src={p.image} alt={p.name} fill sizes="40px" className="object-cover" />
+                        ) : (
+                          <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-primary">
+                            {p.name.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                          {p.name}
+                        </p>
+                        {p.invitedByName && (
+                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                            Invited by {p.invitedByName}
+                          </p>
+                        )}
+                      </div>
+                      {/* Approve / Reject */}
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          disabled={approvingId === p.id}
+                          onClick={async () => {
+                            setApprovingId(p.id);
+                            const res = await fetch(`/api/conversations/${conversationId}/participants`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ userId: p.id, action: "approve" }),
+                            });
+                            if (res.ok) fetchParticipants();
+                            setApprovingId(null);
+                          }}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 transition hover:bg-emerald-200 disabled:opacity-50 dark:bg-emerald-900/30 dark:text-emerald-400"
+                          title="Approve"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </button>
+                        <button
+                          disabled={approvingId === p.id}
+                          onClick={async () => {
+                            setApprovingId(p.id);
+                            const res = await fetch(`/api/conversations/${conversationId}/participants`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ userId: p.id, action: "reject" }),
+                            });
+                            if (res.ok) fetchParticipants();
+                            setApprovingId(null);
+                          }}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-500 transition hover:bg-red-200 disabled:opacity-50 dark:bg-red-900/30"
+                          title="Reject"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
-            {isAdmin && (
-              <div className="border-t px-5 py-4" style={{ borderColor: "var(--border)" }}>
-                <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
-                  You&apos;re an admin of this group
-                </p>
-              </div>
-            )}
           </div>
         </div>
+      )}
+
+      {/* Add Member modal */}
+      {showAddMemberModal && isGroup && (
+        <AddMemberModal
+          conversationId={conversationId}
+          existingMemberIds={[
+            ...localParticipants.map((p) => p.id),
+            ...pendingInvites.map((p) => p.id),
+          ]}
+          isAdmin={Boolean(isAdmin)}
+          onClose={() => setShowAddMemberModal(false)}
+          onDone={() => { fetchParticipants(); }}
+        />
       )}
     </div>
   );

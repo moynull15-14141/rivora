@@ -76,6 +76,7 @@ export default function EditGroupModal({
         body: JSON.stringify(body),
       });
       const json = await res.json();
+      if (res.status === 403) throw new Error("Only admins can edit the group");
       if (!res.ok) throw new Error(json.error ?? "Failed to save");
 
       onSaved(json.name ?? name.trim(), json.avatar ?? avatarUrl ?? null);

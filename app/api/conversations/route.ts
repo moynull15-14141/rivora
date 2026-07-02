@@ -14,12 +14,12 @@ export async function GET() {
   const conversations = await dbc.conversation.findMany({
     where: {
       participants: {
-        some: { userId: currentUser.id, leftAt: null },
+        some: { userId: currentUser.id, leftAt: null, status: "active" },
       },
     },
     include: {
       participants: {
-        where: { leftAt: null },
+        where: { leftAt: null, status: "active" },
         include: {
           user: {
             select: { id: true, name: true, username: true, image: true, lastSeen: true },

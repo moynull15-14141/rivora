@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const participant = await dbc.conversationParticipant.findUnique({
     where: { conversationId_userId: { conversationId, userId: currentUser.id } },
   });
-  if (!participant || participant.leftAt) {
+  if (!participant || participant.leftAt || participant.status === "pending") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
