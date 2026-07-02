@@ -18,7 +18,7 @@ export function useMentionInput(initialValue = "") {
   // Track username → id for users selected from the dropdown
   const [mentionedMap, setMentionedMap] = useState<Map<string, string>>(new Map());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   function handleChange(
     e: ChangeEvent<HTMLTextAreaElement | HTMLInputElement>

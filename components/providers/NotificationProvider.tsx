@@ -100,6 +100,7 @@ export default function NotificationProvider() {
     }
 
     void init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (toasts.length === 0) return null;
