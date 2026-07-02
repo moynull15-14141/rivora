@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Avatar from "@/components/ui/Avatar";
+import MentionDropdown from "@/components/ui/MentionDropdown";
+import { useMentionInput } from "@/hooks/useMentionInput";
+import { renderWithMentions } from "@/utils/renderMentions";
 
 type CommentUser = {
   id: string;
@@ -36,59 +39,104 @@ function timeAgo(date: string | Date) {
 function ReplyInput({
   currentUserImage,
   currentUserName,
+  prefillUsername,
+  prefillUserId,
   onSubmit,
   onCancel,
 }: {
   currentUserImage: string | null;
   currentUserName: string;
-  onSubmit: (content: string) => Promise<void>;
+  prefillUsername?: string;
+  prefillUserId?: string;
+  onSubmit: (content: string, mentionedUserIds: string[]) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [value, setValue] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const {
+    value,
+    mentionQuery,
+    mentionUsers,
+    mentionLoading,
+    selectedIndex,
+    onSelectMention,
+    handleChange,
+    handleKeyDown: handleMentionKeyDown,
+    textareaRef,
+    getMentionedUserIds,
+    closeMention,
+    prefillMention,
+  } = useMentionInput();
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (prefillUsername) {
+      prefillMention({ id: prefillUserId ?? "", name: "", username: prefillUsername, image: null });
+    }
+    // focus after prefill
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!value.trim() || submitting) return;
     setSubmitting(true);
-    await onSubmit(value.trim());
-    setValue("");
+    await onSubmit(value.trim(), getMentionedUserIds());
     setSubmitting(false);
   }
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey && mentionQuery === null) {
+      e.preventDefault();
+      handleSubmit(e as unknown as React.FormEvent);
+      return;
+    }
+    handleMentionKeyDown(e);
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="mt-2 flex items-center gap-2">
+    <form onSubmit={handleSubmit} className="mt-2 flex items-start gap-2">
       <Avatar src={currentUserImage} name={currentUserName} size="xs" />
-      <div
-        className="flex flex-1 items-center gap-2 rounded-2xl px-3 py-1.5"
-        style={{ background: "var(--surface-hover)" }}
-      >
-        <input
-          ref={inputRef}
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="Write a reply…"
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--text-muted)]"
-          style={{ color: "var(--text-primary)" }}
-        />
-        <button
-          type="submit"
-          disabled={!value.trim() || submitting}
-          className="text-primary transition-opacity disabled:opacity-30"
+      <div className="relative flex-1">
+        <div
+          className="flex items-center gap-2 rounded-2xl px-3 py-1.5"
+          style={{ background: "var(--surface-hover)" }}
         >
-          <svg className="h-4 w-4 rotate-90" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-          </svg>
-        </button>
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onBlur={closeMention}
+            placeholder="Write a reply…"
+            rows={1}
+            className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-[var(--text-muted)]"
+            style={{ color: "var(--text-primary)" }}
+          />
+          <button
+            type="submit"
+            disabled={!value.trim() || submitting}
+            className="shrink-0 text-primary transition-opacity disabled:opacity-30"
+          >
+            <svg className="h-4 w-4 rotate-90" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
+          </button>
+        </div>
+        {mentionQuery !== null && (
+          <MentionDropdown
+            users={mentionUsers}
+            loading={mentionLoading}
+            query={mentionQuery}
+            selectedIndex={selectedIndex}
+            onSelect={onSelectMention}
+          />
+        )}
       </div>
       <button
         type="button"
         onClick={onCancel}
-        className="text-xs hover:text-[var(--text-secondary)]"
+        className="shrink-0 self-center text-xs hover:text-[var(--text-secondary)]"
         style={{ color: "var(--text-muted)" }}
       >
         Cancel
@@ -116,9 +164,23 @@ export default function CommentSection({
   const [comments, setComments] = useState<Comment[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [count, setCount] = useState(initialCount);
-  const [input, setInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; username?: string; userId?: string } | null>(null);
+
+  const {
+    value: input,
+    mentionQuery,
+    mentionUsers,
+    mentionLoading,
+    selectedIndex,
+    onSelectMention,
+    handleChange: handleMentionChange,
+    handleKeyDown: handleMentionKeyDown,
+    textareaRef: commentTextareaRef,
+    getMentionedUserIds,
+    closeMention,
+    setValue: setInput,
+  } = useMentionInput();
 
   useEffect(() => {
     if (!defaultOpen) return;
@@ -141,6 +203,15 @@ export default function CommentSection({
     setOpen(true);
   }
 
+  function handleCommentKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey && mentionQuery === null) {
+      e.preventDefault();
+      submitComment(e as unknown as React.FormEvent);
+      return;
+    }
+    handleMentionKeyDown(e);
+  }
+
   async function submitComment(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || submitting) return;
@@ -148,7 +219,11 @@ export default function CommentSection({
     const res = await fetch("/api/comments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId, content: input.trim() }),
+      body: JSON.stringify({
+        postId,
+        content: input.trim(),
+        mentionedUserIds: getMentionedUserIds(),
+      }),
     });
     const json = await res.json();
     if (json.success) {
@@ -159,11 +234,11 @@ export default function CommentSection({
     setSubmitting(false);
   }
 
-  async function submitReply(parentId: string, content: string) {
+  async function submitReply(parentId: string, content: string, mentionedUserIds: string[]) {
     const res = await fetch("/api/comments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId, content, parentId }),
+      body: JSON.stringify({ postId, content, parentId, mentionedUserIds }),
     });
     const json = await res.json();
     if (json.success) {
@@ -221,29 +296,43 @@ export default function CommentSection({
           style={{ borderColor: "var(--border)" }}
         >
           {/* New comment form */}
-          <form onSubmit={submitComment} className="mb-4 flex items-center gap-2">
+          <form onSubmit={submitComment} className="mb-4 flex items-start gap-2">
             <Avatar src={currentUserImage} name={currentUserName} size="sm" />
-            <div
-              className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2"
-              style={{ background: "var(--surface-hover)" }}
-            >
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Write a comment…"
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--text-muted)]"
-                style={{ color: "var(--text-primary)" }}
-              />
-              <button
-                type="submit"
-                disabled={!input.trim() || submitting}
-                className="text-primary transition-opacity disabled:opacity-30"
+            <div className="relative flex-1">
+              <div
+                className="flex items-center gap-2 rounded-2xl px-4 py-2"
+                style={{ background: "var(--surface-hover)" }}
               >
-                <svg className="h-4 w-4 rotate-90" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                </svg>
-              </button>
+                <textarea
+                  ref={commentTextareaRef}
+                  value={input}
+                  onChange={handleMentionChange}
+                  onKeyDown={handleCommentKeyDown}
+                  onBlur={closeMention}
+                  placeholder="Write a comment…"
+                  rows={1}
+                  className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-[var(--text-muted)]"
+                  style={{ color: "var(--text-primary)" }}
+                />
+                <button
+                  type="submit"
+                  disabled={!input.trim() || submitting}
+                  className="shrink-0 text-primary transition-opacity disabled:opacity-30"
+                >
+                  <svg className="h-4 w-4 rotate-90" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                  </svg>
+                </button>
+              </div>
+              {mentionQuery !== null && (
+                <MentionDropdown
+                  users={mentionUsers}
+                  loading={mentionLoading}
+                  query={mentionQuery}
+                  selectedIndex={selectedIndex}
+                  onSelect={onSelectMention}
+                />
+              )}
             </div>
           </form>
 
@@ -267,7 +356,7 @@ export default function CommentSection({
                           {c.user.name}
                         </p>
                         <p className="mt-0.5 break-words text-sm" style={{ color: "var(--text-secondary)" }}>
-                          {c.content}
+                          {renderWithMentions(c.content)}
                         </p>
                       </div>
                       {/* Comment meta */}
@@ -276,7 +365,13 @@ export default function CommentSection({
                           {timeAgo(c.createdAt)}
                         </span>
                         <button
-                          onClick={() => setReplyingTo(replyingTo === c.id ? null : c.id)}
+                          onClick={() =>
+                            setReplyingTo(
+                              replyingTo?.id === c.id
+                                ? null
+                                : { id: c.id, username: c.user.username ?? undefined, userId: c.user.id }
+                            )
+                          }
                           className="text-xs font-semibold hover:text-primary"
                           style={{ color: "var(--text-secondary)" }}
                         >
@@ -294,7 +389,7 @@ export default function CommentSection({
                       </div>
 
                       {/* Replies */}
-                      {(c.replies.length > 0 || replyingTo === c.id) && (
+                      {(c.replies.length > 0 || replyingTo?.id === c.id) && (
                         <div
                           className="mt-2 ml-2 border-l-2 pl-3 flex flex-col gap-3"
                           style={{ borderColor: "var(--border)" }}
@@ -311,7 +406,7 @@ export default function CommentSection({
                                     {r.user.name}
                                   </p>
                                   <p className="mt-0.5 break-words text-sm" style={{ color: "var(--text-secondary)" }}>
-                                    {r.content}
+                                    {renderWithMentions(r.content)}
                                   </p>
                                 </div>
                                 <div className="mt-0.5 flex items-center gap-3 pl-1">
@@ -332,11 +427,15 @@ export default function CommentSection({
                             </div>
                           ))}
 
-                          {replyingTo === c.id && (
+                          {replyingTo?.id === c.id && (
                             <ReplyInput
                               currentUserImage={currentUserImage}
                               currentUserName={currentUserName}
-                              onSubmit={(content) => submitReply(c.id, content)}
+                              prefillUsername={replyingTo.username}
+                              prefillUserId={replyingTo.userId}
+                              onSubmit={(content, mentionedUserIds) =>
+                                submitReply(c.id, content, mentionedUserIds)
+                              }
                               onCancel={() => setReplyingTo(null)}
                             />
                           )}

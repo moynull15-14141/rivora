@@ -9,6 +9,7 @@ import LikeButton from "./LikeButton";
 import CommentSection from "./CommentSection";
 import PostMenu from "./PostMenu";
 import { isOnline } from "@/utils/online";
+import { renderWithMentions } from "@/utils/renderMentions";
 
 type PostUser = {
   id: string;
@@ -116,7 +117,7 @@ export default function PostCard({
           className="whitespace-pre-wrap text-sm leading-relaxed"
           style={{ color: "var(--text-primary)" }}
         >
-          {post.content}
+          {renderWithMentions(post.content)}
         </p>
       </div>
 

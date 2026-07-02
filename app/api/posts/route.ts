@@ -3,6 +3,10 @@ import { z } from "zod";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { successResponse, errorResponse } from "@/utils/api";
+import { createNotification } from "@/lib/notifications";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dbc = db as any;
 
 const FEED_PAGE_SIZE = 10;
 
@@ -65,6 +69,7 @@ const createSchema = z.object({
   content: z.string().min(1, "Content is required").max(5000),
   images: z.array(z.string().url()).max(4).default([]),
   visibility: z.enum(["public", "friends", "only_me"]).default("public"),
+  mentionedUserIds: z.array(z.string()).max(20).default([]),
 });
 
 // POST /api/posts — create post
@@ -98,6 +103,35 @@ export async function POST(request: NextRequest) {
     },
     select: { id: true, content: true, createdAt: true },
   });
+
+  // Fire-and-forget: create mention records + notifications
+  const validMentionIds = parsed.data.mentionedUserIds.filter(
+    (id) => id !== session.user.id
+  );
+  if (validMentionIds.length > 0) {
+    void (async () => {
+      try {
+        await dbc.mention.createMany({
+          data: validMentionIds.map((userId: string) => ({
+            mentionedId: userId,
+            mentionedBy: session.user.id,
+            postId: post.id,
+          })),
+          skipDuplicates: true,
+        });
+        for (const userId of validMentionIds) {
+          await createNotification({
+            userId,
+            actorId: session.user.id,
+            type: "mention_post",
+            postId: post.id,
+          });
+        }
+      } catch {
+        // Best-effort
+      }
+    })();
+  }
 
   return NextResponse.json(successResponse(post), { status: 201 });
 }

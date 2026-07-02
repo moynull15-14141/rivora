@@ -5,10 +5,14 @@ import { db } from "@/lib/db";
 import { successResponse, errorResponse } from "@/utils/api";
 import { createNotification } from "@/lib/notifications";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dbc = db as any;
+
 const commentSchema = z.object({
   postId: z.string().min(1),
   content: z.string().min(1, "Comment cannot be empty").max(1000),
   parentId: z.string().optional(),
+  mentionedUserIds: z.array(z.string()).max(20).default([]),
 });
 
 // POST /api/comments — create a comment
@@ -41,6 +45,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(errorResponse("Post not found"), { status: 404 });
   }
 
+  // If the post owner is mentioned, they'll get a mention_comment notification instead
+  const postOwnerIsMentioned = parsed.data.mentionedUserIds.includes(post.userId);
+
   const [comment] = await Promise.all([
     db.comment.create({
       data: {
@@ -57,11 +64,41 @@ export async function POST(request: NextRequest) {
         user: { select: { id: true, name: true, username: true, image: true } },
       },
     }),
-    // Only notify post owner for top-level comments (not replies)
-    ...(!parsed.data.parentId && session.user.id !== post.userId
+    // Notify post owner for top-level comments — skip if they're also mentioned (mention notif takes priority)
+    ...(!parsed.data.parentId && session.user.id !== post.userId && !postOwnerIsMentioned
       ? [createNotification({ userId: post.userId, actorId: session.user.id, type: "comment", postId: parsed.data.postId })]
       : []),
   ]);
+
+  // Fire-and-forget: mention records + notifications
+  const validMentionIds = parsed.data.mentionedUserIds.filter(
+    (id) => id !== session.user.id
+  );
+  if (validMentionIds.length > 0) {
+    void (async () => {
+      try {
+        await dbc.mention.createMany({
+          data: validMentionIds.map((userId: string) => ({
+            mentionedId: userId,
+            mentionedBy: session.user.id,
+            postId: post.id,
+            commentId: comment.id,
+          })),
+          skipDuplicates: true,
+        });
+        for (const userId of validMentionIds) {
+          await createNotification({
+            userId,
+            actorId: session.user.id,
+            type: "mention_comment",
+            postId: post.id,
+          });
+        }
+      } catch {
+        // Best-effort
+      }
+    })();
+  }
 
   return NextResponse.json(successResponse(comment), { status: 201 });
 }

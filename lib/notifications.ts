@@ -1,20 +1,30 @@
 import { db } from "./db";
 import { sendPushNotification } from "./send-notification";
 
-type NotifType = "like" | "comment" | "friend_request" | "friend_accept";
+export type NotifType =
+  | "like"
+  | "comment"
+  | "friend_request"
+  | "friend_accept"
+  | "mention_post"
+  | "mention_comment";
 
 const NOTIF_TEXT: Record<NotifType, (actorName: string) => { title: string; body: string; sound: string }> = {
-  like: (name) => ({ title: "New Like", body: `${name} liked your post`, sound: "/sounds/notification.wav" }),
-  comment: (name) => ({ title: "New Comment", body: `${name} commented on your post`, sound: "/sounds/notification.wav" }),
-  friend_request: (name) => ({ title: "Friend Request", body: `${name} sent you a friend request`, sound: "/sounds/notification.wav" }),
-  friend_accept: (name) => ({ title: "New Friend", body: `${name} accepted your friend request`, sound: "/sounds/notification.wav" }),
+  like:            (name) => ({ title: "New Like",           body: `${name} liked your post`,                     sound: "/sounds/notification.wav" }),
+  comment:         (name) => ({ title: "New Comment",        body: `${name} commented on your post`,              sound: "/sounds/notification.wav" }),
+  friend_request:  (name) => ({ title: "Friend Request",     body: `${name} sent you a friend request`,           sound: "/sounds/notification.wav" }),
+  friend_accept:   (name) => ({ title: "New Friend",         body: `${name} accepted your friend request`,        sound: "/sounds/notification.wav" }),
+  mention_post:    (name) => ({ title: "You were mentioned", body: `${name} mentioned you in a post`,             sound: "/sounds/notification.wav" }),
+  mention_comment: (name) => ({ title: "You were mentioned", body: `${name} mentioned you in a comment`,         sound: "/sounds/notification.wav" }),
 };
 
-const URL_MAP: Record<NotifType, string> = {
-  like: "/notifications",
-  comment: "/notifications",
-  friend_request: "/notifications",
-  friend_accept: "/notifications",
+const URL_MAP: Record<NotifType, (postId?: string) => string> = {
+  like:            (postId) => postId ? `/posts/${postId}` : "/notifications",
+  comment:         (postId) => postId ? `/posts/${postId}` : "/notifications",
+  friend_request:  ()       => "/notifications",
+  friend_accept:   ()       => "/notifications",
+  mention_post:    (postId) => postId ? `/posts/${postId}` : "/notifications",
+  mention_comment: (postId) => postId ? `/posts/${postId}` : "/notifications",
 };
 
 export async function createNotification({
@@ -30,8 +40,9 @@ export async function createNotification({
 }): Promise<void> {
   if (userId === actorId) return;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [, actor] = await Promise.all([
-      db.notification.create({ data: { userId, actorId, type, postId } }),
+      (db as any).notification.create({ data: { userId, actorId, type, postId } }),
       db.user.findUnique({ where: { id: actorId }, select: { name: true, image: true } }),
     ]);
 
@@ -42,7 +53,7 @@ export async function createNotification({
         title,
         body,
         icon: actor.image ?? undefined,
-        url: URL_MAP[type],
+        url: URL_MAP[type](postId),
         sound,
         type,
       });

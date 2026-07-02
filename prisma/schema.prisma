@@ -47,7 +47,10 @@ model user {
   stories    Story[]
   storyViews StoryView[]
 
-  fcmTokens  String[]
+  fcmTokens String[]
+
+  mentionsReceived Mention[] @relation("MentionedUser")
+  mentionsSent     Mention[] @relation("MentionAuthor")
 
   @@map("users")
 }
@@ -126,6 +129,7 @@ model Post {
   comments      Comment[]
   likes         Like[]
   notifications Notification[]
+  mentions      Mention[]
 
   @@index([userId, createdAt(sort: Desc)])
   @@map("posts")
@@ -142,6 +146,8 @@ model Comment {
   parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies   Comment[] @relation("CommentReplies")
   createdAt DateTime @default(now())
+
+  mentions Mention[]
 
   @@index([postId, createdAt(sort: Asc)])
   @@index([parentId])
@@ -253,6 +259,8 @@ enum NotificationType {
   comment
   friend_request
   friend_accept
+  mention_post
+  mention_comment
 }
 
 model Notification {
@@ -271,4 +279,22 @@ model Notification {
   @@index([userId, createdAt(sort: Desc)])
   @@index([userId, read])
   @@map("notifications")
+}
+
+model Mention {
+  id          String   @id @default(cuid())
+  mentionedId String
+  mentioned   user     @relation("MentionedUser", fields: [mentionedId], references: [id], onDelete: Cascade)
+  mentionedBy String
+  author      user     @relation("MentionAuthor", fields: [mentionedBy], references: [id], onDelete: Cascade)
+  postId      String?
+  post        Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  commentId   String?
+  comment     Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([mentionedId])
+  @@index([postId])
+  @@index([commentId])
+  @@map("mentions")
 }

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useMentionInput } from "@/hooks/useMentionInput";
+import MentionDropdown from "@/components/ui/MentionDropdown";
 
 const MAX_IMAGES = 4;
 
@@ -15,12 +17,26 @@ export default function CreatePost({
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [content, setContent] = useState("");
   const [visibility, setVisibility] = useState<"public" | "friends" | "only_me">("public");
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const {
+    value: content,
+    setValue: setContent,
+    mentionQuery,
+    mentionUsers,
+    mentionLoading,
+    selectedIndex,
+    onSelectMention,
+    handleChange: handleMentionChange,
+    handleKeyDown: handleMentionKeyDown,
+    textareaRef,
+    getMentionedUserIds,
+    closeMention,
+  } = useMentionInput();
 
   const initials = userName
     .split(" ")
@@ -68,7 +84,12 @@ export default function CreatePost({
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: content.trim(), images: imageUrls, visibility }),
+        body: JSON.stringify({
+          content: content.trim(),
+          images: imageUrls,
+          visibility,
+          mentionedUserIds: getMentionedUserIds(),
+        }),
       });
       const json = await res.json();
 
@@ -110,16 +131,30 @@ export default function CreatePost({
             )}
           </div>
 
-          {/* Input */}
-          <div className="flex-1">
+          {/* Input area */}
+          <div className="relative flex-1">
             <textarea
+              ref={textareaRef}
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={handleMentionChange}
+              onKeyDown={handleMentionKeyDown}
+              onBlur={closeMention}
               placeholder={`What's on your mind, ${userName.split(" ")[0]}?`}
               rows={3}
               className="w-full resize-none rounded-xl px-4 py-3 text-sm outline-none transition focus:ring-2 focus:ring-primary/20 placeholder:text-[var(--text-muted)]"
               style={{ background: "var(--surface-hover)", color: "var(--text-primary)" }}
             />
+
+            {/* Mention dropdown */}
+            {mentionQuery !== null && (
+              <MentionDropdown
+                users={mentionUsers}
+                loading={mentionLoading}
+                query={mentionQuery}
+                selectedIndex={selectedIndex}
+                onSelect={onSelectMention}
+              />
+            )}
 
             {/* Image previews */}
             {previews.length > 0 && (

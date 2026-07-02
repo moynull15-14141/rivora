@@ -26,6 +26,8 @@ const NOTIF_TEXT: Record<string, string> = {
   comment: "commented on your post",
   friend_request: "sent you a friend request",
   friend_accept: "accepted your friend request",
+  mention_post: "mentioned you in a post",
+  mention_comment: "mentioned you in a comment",
 };
 
 const NOTIF_ICON: Record<string, React.ReactNode> = {
@@ -47,6 +49,16 @@ const NOTIF_ICON: Record<string, React.ReactNode> = {
   friend_accept: (
     <svg className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  mention_post: (
+    <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+    </svg>
+  ),
+  mention_comment: (
+    <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
     </svg>
   ),
 };
@@ -110,7 +122,9 @@ export default function NotificationList({
       style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
     >
       {notifications.map((n, i) => {
-        const isPostAction = (n.type === "like" || n.type === "comment") && n.postId;
+        const isPostAction =
+          (n.type === "like" || n.type === "comment" || n.type === "mention_post" || n.type === "mention_comment") &&
+          n.postId;
         const href = isPostAction
           ? `/posts/${n.postId}`
           : `/${n.actor.username ?? n.actor.id}`;
