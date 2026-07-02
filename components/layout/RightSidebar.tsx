@@ -7,6 +7,7 @@ type Suggestion = {
   name: string;
   username: string | null;
   image: string | null;
+  isPrivate: boolean;
 };
 
 export default function RightSidebar({ suggestions }: { suggestions: Suggestion[] }) {
@@ -34,10 +35,27 @@ export default function RightSidebar({ suggestions }: { suggestions: Suggestion[
               <div className="min-w-0 flex-1">
                 <Link
                   href={href}
-                  className="block truncate text-sm font-semibold hover:underline"
+                  className="flex items-center gap-1 truncate text-sm font-semibold hover:underline"
                   style={{ color: "var(--text-primary)" }}
                 >
-                  {user.name}
+                  <span className="truncate">{user.name}</span>
+                  {user.isPrivate && (
+                    <svg
+                      className="h-3 w-3 shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      style={{ color: "var(--text-muted)" }}
+                      aria-label="Private account"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                      />
+                    </svg>
+                  )}
                 </Link>
                 {user.username && (
                   <p className="truncate text-xs" style={{ color: "var(--text-muted)" }}>

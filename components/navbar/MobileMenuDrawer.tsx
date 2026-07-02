@@ -128,17 +128,17 @@ export default function MobileMenuDrawer({ user }: Props) {
       {/* Overlay */}
       {open && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 sm:hidden"
+          className="fixed inset-0 z-50 bg-black/60 sm:hidden"
           onClick={() => setOpen(false)}
         />
       )}
 
       {/* Drawer */}
       <div
-        className={`fixed left-0 top-0 z-50 flex h-full w-72 flex-col shadow-xl transition-transform duration-300 ease-in-out sm:hidden ${
+        className={`fixed left-0 top-0 z-[60] flex h-full w-72 flex-col bg-white shadow-xl transition-transform duration-300 ease-in-out dark:bg-[#1A2129] sm:hidden ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
-        style={{ background: "var(--surface)", borderRight: "1px solid var(--border)" }}
+        style={{ borderRight: "1px solid var(--border)" }}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border)" }}>

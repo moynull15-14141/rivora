@@ -99,7 +99,7 @@ export default async function HomePage() {
       sentRequests: { none: { friendId: currentUser.id } },
       receivedRequests: { none: { userId: currentUser.id } },
     },
-    select: { id: true, name: true, username: true, image: true },
+    select: { id: true, name: true, username: true, image: true, isPrivate: true },
     take: 20,
     orderBy: { createdAt: "desc" },
   });

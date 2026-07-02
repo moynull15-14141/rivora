@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import AppearanceSettings from "@/components/settings/AppearanceSettings";
 import AccountSettings from "@/components/settings/AccountSettings";
 import NotificationSettings from "@/components/settings/NotificationSettings";
+import PrivacySettings from "@/components/settings/PrivacySettings";
 
 export const metadata = { title: "Settings — Rivora" };
 
@@ -17,6 +18,7 @@ export default async function SettingsPage() {
       </h1>
 
       <div className="flex flex-col gap-4">
+        <PrivacySettings userId={user.id} initialIsPrivate={user.isPrivate} />
         <NotificationSettings />
         <AppearanceSettings />
         <AccountSettings />

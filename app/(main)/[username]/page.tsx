@@ -12,12 +12,14 @@ export async function generateMetadata({
   const { username } = await params;
   const user = await db.user.findFirst({
     where: { OR: [{ username }, { id: username }] },
-    select: { name: true, bio: true },
+    select: { name: true, bio: true, isPrivate: true },
   });
   if (!user) return {};
   return {
     title: `${user.name} (@${username}) — Rivora`,
-    description: user.bio ?? `${user.name}'s profile on Rivora`,
+    description: user.isPrivate
+      ? `${user.name}'s profile on Rivora`
+      : (user.bio ?? `${user.name}'s profile on Rivora`),
   };
 }
 
@@ -39,6 +41,7 @@ export default async function ProfilePage({
         bio: true,
         image: true,
         coverPhoto: true,
+        isPrivate: true,
         createdAt: true,
         lastSeen: true,
         _count: { select: { posts: true } },
@@ -51,7 +54,7 @@ export default async function ProfilePage({
 
   const isOwnProfile = currentUser?.id === profileUser.id;
 
-  // Phase 2: friendship (needed before we can determine post visibility)
+  // Phase 2: friendship (needed to determine visibility)
   const friendship =
     currentUser && !isOwnProfile
       ? await db.friend.findFirst({
@@ -67,50 +70,59 @@ export default async function ProfilePage({
 
   const isFriend = friendship?.status === "accepted";
 
-  // Phase 3: friend count + visible post count + posts (all in parallel)
+  // Phase 3: can this viewer see the full profile?
+  const canView = !profileUser.isPrivate || isOwnProfile || isFriend;
+
+  // Phase 4: fetch counts + posts only when visible
   const [friendCount, visiblePostCount, posts] = await Promise.all([
-    db.friend.count({
-      where: {
-        status: "accepted",
-        OR: [{ userId: profileUser.id }, { friendId: profileUser.id }],
-      },
-    }),
-    db.post.count({
-      where: {
-        userId: profileUser.id,
-        ...(isOwnProfile
-          ? {}
-          : isFriend
-          ? { visibility: { in: ["public", "friends"] as ("public" | "friends" | "only_me")[] } }
-          : { visibility: "public" as const }),
-      },
-    }),
-    db.post.findMany({
-      where: {
-        userId: profileUser.id,
-        ...(isOwnProfile
-          ? {}
-          : isFriend
-          ? { visibility: { in: ["public", "friends"] as ("public" | "friends" | "only_me")[] } }
-          : { visibility: "public" as const }),
-      },
-      select: {
-        id: true,
-        content: true,
-        images: true,
-        visibility: true,
-        createdAt: true,
-        editedAt: true,
-        user: { select: { id: true, name: true, username: true, image: true, lastSeen: true } },
-        _count: { select: { likes: true, comments: true } },
-        likes: {
-          where: { userId: currentUser?.id ?? "none" },
-          select: { id: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    }),
+    canView
+      ? db.friend.count({
+          where: {
+            status: "accepted",
+            OR: [{ userId: profileUser.id }, { friendId: profileUser.id }],
+          },
+        })
+      : Promise.resolve(0),
+    canView
+      ? db.post.count({
+          where: {
+            userId: profileUser.id,
+            ...(isOwnProfile
+              ? {}
+              : isFriend
+              ? { visibility: { in: ["public", "friends"] as const } }
+              : { visibility: "public" as const }),
+          },
+        })
+      : Promise.resolve(0),
+    canView
+      ? db.post.findMany({
+          where: {
+            userId: profileUser.id,
+            ...(isOwnProfile
+              ? {}
+              : isFriend
+              ? { visibility: { in: ["public", "friends"] as const } }
+              : { visibility: "public" as const }),
+          },
+          select: {
+            id: true,
+            content: true,
+            images: true,
+            visibility: true,
+            createdAt: true,
+            editedAt: true,
+            user: { select: { id: true, name: true, username: true, image: true, lastSeen: true } },
+            _count: { select: { likes: true, comments: true } },
+            likes: {
+              where: { userId: currentUser?.id ?? "none" },
+              select: { id: true },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        })
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -122,39 +134,86 @@ export default async function ProfilePage({
           friendCount={friendCount}
           friendship={friendship ?? null}
           currentUserId={currentUser?.id ?? null}
+          canView={canView}
         />
 
-        {/* Posts */}
-        <div className="flex flex-col gap-4">
-          {posts.length === 0 ? (
+        {/* Private wall — shown to non-friends of a private account */}
+        {!canView && (
+          <div
+            className="rounded-2xl p-10 text-center shadow-sm"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+          >
             <div
-              className="rounded-2xl p-8 text-center shadow-sm"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full"
+              style={{ background: "var(--surface-hover)", border: "2px solid var(--border)" }}
             >
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                {isOwnProfile
-                  ? "You haven't posted anything yet."
-                  : `${profileUser.name} hasn't posted anything yet.`}
-              </p>
-            </div>
-          ) : (
-            posts.map((post, i) =>
-              currentUser ? (
-                <PostCard
-                  key={post.id}
-                  post={{
-                    ...post,
-                    visibility: post.visibility as "public" | "friends" | "only_me",
-                  }}
-                  currentUserId={currentUser.id}
-                  currentUserName={currentUser.name}
-                  currentUserImage={currentUser.image ?? null}
-                  priority={i === 0}
+              <svg
+                className="h-9 w-9"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                style={{ color: "var(--text-muted)" }}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
                 />
-              ) : null
-            )
-          )}
-        </div>
+              </svg>
+            </div>
+            <h2
+              className="font-heading text-lg font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              This Account is Private
+            </h2>
+            <p
+              className="mt-2 max-w-xs mx-auto text-sm leading-relaxed"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Send a friend request to see{" "}
+              <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
+                {profileUser.name}
+              </span>
+              {"'s"} posts and photos.
+            </p>
+          </div>
+        )}
+
+        {/* Posts — shown only when canView */}
+        {canView && (
+          <div className="flex flex-col gap-4">
+            {posts.length === 0 ? (
+              <div
+                className="rounded-2xl p-8 text-center shadow-sm"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              >
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  {isOwnProfile
+                    ? "You haven't posted anything yet."
+                    : `${profileUser.name} hasn't posted anything yet.`}
+                </p>
+              </div>
+            ) : (
+              posts.map((post, i) =>
+                currentUser ? (
+                  <PostCard
+                    key={post.id}
+                    post={{
+                      ...post,
+                      visibility: post.visibility as "public" | "friends" | "only_me",
+                    }}
+                    currentUserId={currentUser.id}
+                    currentUserName={currentUser.name}
+                    currentUserImage={currentUser.image ?? null}
+                    priority={i === 0}
+                  />
+                ) : null
+              )
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

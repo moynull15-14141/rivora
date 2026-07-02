@@ -30,9 +30,12 @@ export async function GET(request: NextRequest) {
   const posts = await db.post.findMany({
     where: {
       OR: [
-        { visibility: "public" },
+        // Own posts are always visible
         { userId: session.user.id },
-        { userId: { in: friendIds }, visibility: "friends" },
+        // Friends' posts (public or friends-only)
+        { userId: { in: friendIds }, visibility: { in: ["public", "friends"] } },
+        // Public posts from non-private accounts (strangers)
+        { user: { isPrivate: false }, visibility: "public" },
       ],
     },
     select: {

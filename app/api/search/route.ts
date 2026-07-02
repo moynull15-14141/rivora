@@ -15,24 +15,46 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(successResponse([]));
   }
 
-  const users = await db.user.findMany({
-    where: {
-      id: { not: session.user.id },
-      OR: [
-        { name: { contains: q, mode: "insensitive" } },
-        { username: { contains: q, mode: "insensitive" } },
-      ],
-    },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      image: true,
-      bio: true,
-    },
-    take: 8,
-    orderBy: { name: "asc" },
-  });
+  const [users, friendships] = await Promise.all([
+    db.user.findMany({
+      where: {
+        id: { not: session.user.id },
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { username: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        image: true,
+        bio: true,
+        isPrivate: true,
+      },
+      take: 8,
+      orderBy: { name: "asc" },
+    }),
+    db.friend.findMany({
+      where: {
+        status: "accepted",
+        OR: [{ userId: session.user.id }, { friendId: session.user.id }],
+      },
+      select: { userId: true, friendId: true },
+    }),
+  ]);
 
-  return NextResponse.json(successResponse(users));
+  const friendSet = new Set(
+    friendships.map((f) =>
+      f.userId === session.user.id ? f.friendId : f.userId
+    )
+  );
+
+  const result = users.map((u) => ({
+    ...u,
+    // Hide bio for private accounts that aren't friends
+    bio: u.isPrivate && !friendSet.has(u.id) ? null : u.bio,
+  }));
+
+  return NextResponse.json(successResponse(result));
 }

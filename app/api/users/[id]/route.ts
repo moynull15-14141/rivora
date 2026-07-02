@@ -14,6 +14,7 @@ const updateSchema = z.object({
     .optional(),
   image: z.string().url().nullable().optional(),
   coverPhoto: z.string().url().nullable().optional(),
+  isPrivate: z.boolean().optional(),
 });
 
 export async function PATCH(
@@ -69,6 +70,7 @@ export async function PATCH(
       bio: true,
       image: true,
       coverPhoto: true,
+      isPrivate: true,
     },
   });
 
