@@ -1,6 +1,9 @@
 import { db } from "./db";
 import { sendPushNotification } from "./send-notification";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dbc = db as any;
+
 export type NotifType =
   | "like"
   | "comment"
@@ -40,9 +43,8 @@ export async function createNotification({
 }): Promise<void> {
   if (userId === actorId) return;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [, actor] = await Promise.all([
-      (db as any).notification.create({ data: { userId, actorId, type, postId } }),
+      dbc.notification.create({ data: { userId, actorId, type, postId } }),
       db.user.findUnique({ where: { id: actorId }, select: { name: true, image: true } }),
     ]);
 
